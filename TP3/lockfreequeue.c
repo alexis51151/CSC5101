@@ -2,6 +2,10 @@
 // Created by alexis51151 on 01/10/2020.
 //
 
+//
+// Created by alexis51151 on 01/10/2020.
+//
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdatomic.h>
@@ -16,9 +20,8 @@ struct node{
 
 
 struct queue{
-	struct node* head;
-	struct node* tail;
-	pthread_mutex_t lock;
+	struct node* _Atomic head;
+	struct node* _Atomic tail;
 };
 
 // Global vars
@@ -26,56 +29,79 @@ struct queue q;
 int K;
 
 void enqueue(struct queue* q, int e){
-	pthread_mutex_lock(&q->lock);
-	struct node* n = malloc(sizeof(struct node));
-	n->next = NULL;
+	struct node* _Atomic n = malloc(sizeof(struct node));
+	struct node* _Atomic old;
+	struct node** null_node = malloc(sizeof(struct node*));
+	*null_node = 0;
 	n->elt = e;
-	if(q->tail != NULL){
-		q->tail->next = n;
-	}
-	else{
-		q->head = n;
-	}
-	q->tail = n;
-	pthread_mutex_unlock(&q->lock);
+	do {
+		old = q->tail;
+		while(old->next != NULL){ // old is no more the tail (or empty queue)
+			atomic_compare_exchange_strong(&q->tail, &old, old->next); // we try to change the tail
+			old = q->tail;
+		}
+	} while (!atomic_compare_exchange_strong(&old->next, null_node, n)); // as long as we haven't inserted n
+
+	// then we finally try to update the tail (if old is still the tail)
+	// (if we cannot, someone else has already done it for us)
+	atomic_compare_exchange_strong(&q->tail, &old, n);
 }
 
 int dequeue(struct queue* q){
-	pthread_mutex_lock(&q->lock);
-	struct node* n = q->head;
-	q->head = q->head->next;
-	if(q->head == NULL){
-		q->tail = NULL;
+	struct node* res;
+	do {
+		res = q->head;
+		if(res->next == NULL){ // empty queue
+			return 0;
+		}
+		// not empty queue
+	} while(!atomic_compare_exchange_strong(&q->head, &res, res->next)); // as long as we can't dequeue
+	return res->next->elt;
+}
+
+
+void queue_state(struct queue* q){
+	struct node* curr = q->head;
+	while(curr != NULL){
+		printf("-%d-", curr->elt);
+		curr = curr->next;
 	}
-	pthread_mutex_unlock(&q->lock);
-	return n->elt;
+	printf("\n");
 }
 
 void* thread(){
 	for(int i = 0; i < K;i++){
 		enqueue(&q, 2);
 	}
+
 	for(int i = 0; i < K;i++){
 		dequeue(&q);
 	}
+
 	pthread_exit(0);
 }
 
 int main(int argc, char** argv) {
-	q.head = NULL;
-	q.tail = NULL;
-	pthread_mutex_init(&q.lock, NULL);
+	// queue initialization
+	struct node* fake = malloc(sizeof(struct node)); // fake node to handle empty queue
+	fake->next = NULL;
+	fake->elt = -1;
+	q.head = fake;
+	q.tail = fake;
+
 
 	if(argc < 3){
-		printf("Please give one argument\n");
+		printf("Please give 2 argument\n");
 		return 1;
 	}
-	int N = atoi(argv[1]);
-	K = atoi(argv[2]);
+
+	int N = atoi(argv[1]); // nb of threads
+	K = atoi(argv[2]); // nb of iterations
 	printf("N = %d, K = %d\n", N, K);
 
-	pthread_t threads[N];
 
+	pthread_t threads[N];
+	// Creating and joining the threads
 	for(int i = 0; i < N; i++) {
 		pthread_create(&threads[i], NULL, thread, NULL);
 	}
@@ -84,7 +110,11 @@ int main(int argc, char** argv) {
 		pthread_join(threads[i],NULL);
 	}
 
-	if(q.head == NULL){
+	//Debugging
+	queue_state(&q);
+
+	// Little check on consistency
+	if(q.head == q.tail){
 		printf("Queue successful\n");
 	}
 	else{
