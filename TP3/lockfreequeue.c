@@ -10,14 +10,20 @@
 #include <stdlib.h>
 #include <stdatomic.h>
 #include <pthread.h>
+#include <time.h>
 
 #define MAX_ITEMS 100
+
+
 
 struct node{
 	struct node* next;
 	int elt;
 };
 
+struct stack {
+	struct node* _Atomic head;
+};
 
 struct queue{
 	struct node* _Atomic head;
@@ -56,6 +62,7 @@ int dequeue(struct queue* q){
 		}
 		// not empty queue
 	} while(!atomic_compare_exchange_strong(&q->head, &res, res->next)); // as long as we can't dequeue
+	free(res->next);
 	return res->next->elt;
 }
 
@@ -72,16 +79,21 @@ void queue_state(struct queue* q){
 void* thread(){
 	for(int i = 0; i < K;i++){
 		enqueue(&q, 2);
+		dequeue(&q);
 	}
-
+	/*
 	for(int i = 0; i < K;i++){
 		dequeue(&q);
 	}
-
+	*/
 	pthread_exit(0);
 }
 
 int main(int argc, char** argv) {
+	struct timespec start, stop;
+	double total_time;
+
+	clock_gettime(CLOCK_MONOTONIC, &start);
 	// queue initialization
 	struct node* fake = malloc(sizeof(struct node)); // fake node to handle empty queue
 	fake->next = NULL;
@@ -98,7 +110,6 @@ int main(int argc, char** argv) {
 	int N = atoi(argv[1]); // nb of threads
 	K = atoi(argv[2]); // nb of iterations
 	printf("N = %d, K = %d\n", N, K);
-
 
 	pthread_t threads[N];
 	// Creating and joining the threads
@@ -120,5 +131,10 @@ int main(int argc, char** argv) {
 	else{
 		printf("Queue unsuccessful\n");
 	}
+	clock_gettime(CLOCK_MONOTONIC, &stop);
+	total_time = ( stop.tv_sec - start.tv_sec )
+	+ ( stop.tv_nsec - start.tv_nsec )
+	  / 1000000000;
+	printf("Total time = %fs", total_time);
 	exit(0);
 }

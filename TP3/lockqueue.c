@@ -62,6 +62,11 @@ void* thread(){
 }
 
 int main(int argc, char** argv) {
+	struct timespec start, stop;
+	double total_time;
+
+	clock_gettime(CLOCK_MONOTONIC, &start);
+
 	q.head = NULL;
 	q.tail = NULL;
 	pthread_mutex_init(&q.lock, NULL);
@@ -90,5 +95,12 @@ int main(int argc, char** argv) {
 	else{
 		printf("Queue unsuccessful\n");
 	}
+
+	clock_gettime(CLOCK_MONOTONIC, &stop);
+	total_time = ( stop.tv_sec - start.tv_sec )
+	             + ( stop.tv_nsec - start.tv_nsec )
+	               / 1000000000;
+	printf("Total time = %fs", total_time);
+
 	exit(0);
 }
