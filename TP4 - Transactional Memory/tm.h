@@ -12,6 +12,13 @@
 
 #define NB_CELLS 65536
 
+static inline uint64_t read_tscp(){
+	uint32_t eax, edx;
+	asm volatile("rdtscp" : "=a" (eax), "=d" (edx));
+	return eax | ((uint64_t)edx)<<32;
+}
+
+
 struct cell {
 	uintptr_t value;
 	size_t    counter;
