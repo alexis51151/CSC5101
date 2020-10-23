@@ -20,28 +20,33 @@ size_t _Atomic head; // where we add the entries in the log
 int nvmm_fd;
 
 void* thread_clean(){
-	printf("Entering cleanup\n");
+	struct timespec start, mid, end;
 	int c = 0;
 	while(c < 1024){
 		/* Wait for an operation to read*/
 		while(nvmm->operation[nvmm->tail].committed != true){
 		}
-		printf("Valeur n° %d\n", c/5);
 		/* Propagate to the file */
+		clock_gettime(CLOCK_MONOTONIC, &start);
 		pwrite(nvmm->operation[nvmm->tail].fd, (char*) nvmm->operation[nvmm->tail].buf, nvmm->operation[nvmm->tail].n, nvmm->operation[nvmm->tail].off);
+		clock_gettime(CLOCK_MONOTONIC, &mid);
 		fsync(nvmm->tail);
+		clock_gettime(CLOCK_MONOTONIC, &end);
 		nvmm->operation[nvmm->tail].committed = false;
 		pfence();
 		nvmm->tail = (nvmm->tail+1)%NB_ENTRIES;
 		psync();
 		c += 5;
 	}
+	printf("pwrite + fsync total time = %f ns\n", (end.tv_sec-start.tv_sec)*1e-9 + (end.tv_nsec-start.tv_nsec));
+	printf("pwrite total time = %f ns\n", (mid.tv_sec-start.tv_sec)*1e-9 + (mid.tv_nsec-start.tv_nsec));
 	return (void*) 0;
 }
 
-
+/* Commit a write into the NVMM */
 int my_pwrite(int fd, void* buf, size_t count, off_t offset){
-
+	struct timespec start, end;
+	clock_gettime(CLOCK_MONOTONIC, &start);
 	/* Wait while the log is full */
 	while(head+1 == nvmm->tail){
 		// Wait
@@ -63,9 +68,9 @@ int my_pwrite(int fd, void* buf, size_t count, off_t offset){
 		pwb(&nvmm->operation[head].committed);
 		psync();
 	}
-	printf("Valeur après pwrite %s \n", nvmm->operation[head].buf);
 	head = (head+1)%NB_ENTRIES;
-	printf("Head value : %ld\n", head);
+	clock_gettime(CLOCK_MONOTONIC, &end);
+	printf("my_pwrite total time = %f ns\n", (end.tv_sec-start.tv_sec)*1e-9 + (end.tv_nsec-start.tv_nsec));
 	return EXIT_SUCCESS;
 }
 
