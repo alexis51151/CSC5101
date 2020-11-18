@@ -2,6 +2,7 @@
 // Created by Alexis Le Glaunec on 18/11/2020.
 //
 #include <stdio.h>
+#include <stdlib.h>
 #include <pthread.h>
 
 struct rwlock {
@@ -10,15 +11,27 @@ struct rwlock {
 	int             nb_readers; /* donne le nombre de lecteurs dans la section critique */
 };
 
+// Stack data structure
+struct node {
+	int val;
+	struct node* next;
+};
+
+
 // global variables
 struct rwlock lock;
+struct node* stack;
 
-
-// lock init
-void init(struct rwlock* lock){
+void init(struct rwlock* lock, struct node* stack){
+	// lock init
 	pthread_mutex_init(&lock->wlock, NULL);
 	pthread_mutex_init(&lock->rlock, NULL);
 	lock->nb_readers = 0;
+	// stack init
+	stack = malloc(sizeof(struct node));
+	stack->val = 0;
+	stack->next = 0;
+
 }
 
 // called by reader before CS
@@ -55,10 +68,40 @@ void vwrite(struct  rwlock* lock) {
 }
 
 
+void push(int n){
+	struct node* node = malloc(sizeof(struct node));
+	node->val = n;
+	pwrite(&lock);
+	node->next = stack;
+	stack = node;
+	vwrite(&lock);
+}
+
+int pop() {
+	pwrite(&lock);
+	int value = stack->val;
+	struct node* node = stack;
+	stack = stack->next;
+	free(node);
+	vwrite(&lock);
+	return value;
+}
+
+int size(){
+	int count = 0;
+	pread(&lock);
+	struct node* cur = stack;
+	while(cur != 0){
+		count++;
+		cur = cur->next;
+	}
+	vread(&lock);
+	return count;
+}
 
 int main(int argc, char** argv) {
-	// lock init
-	init(&lock);
+	// lock & stack init
+	init(&lock, stack);
 
 
 	return 0;
