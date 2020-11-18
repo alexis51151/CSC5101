@@ -44,7 +44,9 @@ void vread(struct rwlock* lock){
 
 // called by writer before CS
 void pwrite(struct  rwlock* lock) {
+	pthread_mutex_lock(&lock->rlock);
 	pthread_mutex_lock(&lock->wlock);
+	pthread_mutex_unlock(&lock->rlock);
 }
 
 // called by writer after CS
