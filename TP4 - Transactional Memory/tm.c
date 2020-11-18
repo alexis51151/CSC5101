@@ -11,7 +11,7 @@
 
 int N;
 struct memory mem;
-pthread_mutex_t lock; // used both by lock and trnasaction algorithms
+pthread_mutex_t lock; // used both by lock and transaction algorithms
 //double total_time;
 uint64_t total_time;
 

@@ -7,11 +7,12 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdatomic.h>
 
 // LIFO queue data type
 struct queue {
 	int tab[MAX];
-	int head;
+	int* _Atomic head;
 };
 
 // global variables
@@ -23,27 +24,27 @@ pthread_cond_t  full =    PTHREAD_COND_INITIALIZER;
 
 
 int push(char e){
-	pthread_mutex_lock(&lock);
-	while(q.head == MAX){ // active waiting while the queue is full
-		pthread_cond_wait(&full, &lock);
-	}
-	// update the queue
-	q.tab[q.head] = e;
-	q.head++;
-	// send a signal if a pop was waiting
-	pthread_cond_signal(&empty);
-	pthread_mutex_unlock(&lock);
+	int* head;
+	do {
+		while(*q.head == MAX){ // active waiting
+
+		}
+		head = q.head; // the last read head
+	} while(!atomic_compare_exchange_strong(q.head, head, *head+1));
 	return 1;
 }
 
 char pop() {
-	while(q.head == 0){ // active waiting while the queue is empty
-		pthread_cond_wait(&empty, &lock);
-	}
-	q.head--;
-	// send a signal if a push was waiting
-	pthread_cond_signal(&full);
-	return q.tab[q.head];
+	int* head;
+	char e;
+	do {
+		while(*q.head == 0){ // active waiting
+
+		}
+		head = q.head; // the last read head
+		e = q.tab[*q.head];
+	} while(!atomic_compare_exchange_strong(q.head, head, *head-1));
+	return e;
 }
 
 void* scenario(void* arg) {
@@ -64,12 +65,12 @@ int main(int argc, char** argv){
 		printf("Correct call : queue nb_threads\n");
 		return 1;
 	}
-
+	int head = 0;
+	q.head = &head;
 	int nb_threads = atoi(argv[1]);
 	for(int i = 0; i < nb_threads; i++){
 		pthread_t t;
 		pthread_create(&t, NULL, &scenario, &i);
 	}
-
 	pthread_exit(0);
 }

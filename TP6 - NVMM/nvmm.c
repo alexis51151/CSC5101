@@ -64,6 +64,7 @@ int my_pwrite(int fd, void* buf, size_t count, off_t offset){
 		nvmm->operation[head].off = offset;
 		pwb(&nvmm->operation[head].off);
 		pfence();
+		usleep(10000); // To allow crash-recovery (so that we have time to CTRL+C)
 		nvmm->operation[head].committed = true;
 		pwb(&nvmm->operation[head].committed);
 		psync();
