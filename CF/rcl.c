@@ -14,8 +14,16 @@ struct cs {
 	int completed;
 };
 
+// global vars
 struct cs* pendings;
+int var;
+
+// thread vars
 __thread struct cs request;
+
+void add(int v){
+	var += v;
+}
 
 void* master(){
 	printf("Master called\n");
@@ -37,11 +45,12 @@ int main(int argc, char** argv){
 	printf("n = %d\n", n);
 
 	pendings = malloc(n*sizeof(struct cs));
+	var = 0;
 
 	pthread_t threads[n];
 	for(int i = 0; i < n; i++){
 		pthread_t thread;
-		pthread_create(&thread, NULL, slave,NULL);
+		pthread_create(&thread, NULL, slave, NULL);
 		threads[i] = thread;
 	}
 	master();
