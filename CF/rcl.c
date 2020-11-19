@@ -31,8 +31,9 @@ void* master(){
 }
 
 
-void* slave() {
-	printf("Slave called\n");
+void* slave(void * arg) {
+	int index = *((int*) arg);
+	printf("Slave called with index %d\n", index);
 	pthread_exit(0);
 }
 
@@ -50,7 +51,9 @@ int main(int argc, char** argv){
 	pthread_t threads[n];
 	for(int i = 0; i < n; i++){
 		pthread_t thread;
-		pthread_create(&thread, NULL, slave, NULL);
+		int* arg = malloc(sizeof(int));
+		*arg = i;
+		pthread_create(&thread, NULL, slave, (void*) arg);
 		threads[i] = thread;
 	}
 	master();
