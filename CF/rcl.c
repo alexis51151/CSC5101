@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <stdatomic.h>
+#include <unistd.h>
 
 
 struct cs {
@@ -15,7 +16,7 @@ struct cs {
 };
 
 // global vars
-struct cs* pendings;
+struct cs** pendings;
 int var;
 
 // thread vars
@@ -25,9 +26,22 @@ void add(int v){
 	var += v;
 }
 
-void* master(){
+void* master(int n){
 	printf("Master called\n");
-	pthread_exit(0);
+	while(1) {
+		// go through the pendings array
+		for(int K = 0; K < n; K++) {
+			// check if there is something to do
+			if(pendings[K] != NULL && pendings[K]->completed != 1) {
+				pendings[K]->func(pendings[K]->arg);
+				// unlock the client thread
+				pendings[K]->completed = 1;
+			}
+		}
+		// To have a better display
+		sleep(1);
+		printf("Sum = %d\n", var);
+	}
 }
 
 
@@ -42,8 +56,8 @@ void* slave(void * arg) {
 		request.completed = 0; // false
 
 		// ask an execution
-		pendings[index] = request;
-		printf(" %d : Waiting for add(2)\n", index);
+		pendings[index] = &request;
+		//printf(" %d : Waiting for add(2)\n", index);
 		// wait for the execution completion
 		while(request.completed != 1);
 
@@ -53,9 +67,9 @@ void* slave(void * arg) {
 		request.completed = 0; // false
 
 		// ask an execution
-		pendings[index] = request;
+		pendings[index] = &request;
 
-		printf("%d : Waiting for add(-1)\n", index);
+		//printf("%d : Waiting for add(-1)\n", index);
 		// wait for the execution completion
 		while(request.completed != 1);
 		// returns after execution of add(2) and add(-1)
@@ -71,6 +85,9 @@ int main(int argc, char** argv){
 	printf("n = %d\n", n);
 
 	pendings = malloc(n*sizeof(struct cs));
+	for(int i = 0; i < n; i++){
+		pendings[i] = NULL;
+	}
 	var = 0;
 
 	pthread_t threads[n];
@@ -81,7 +98,7 @@ int main(int argc, char** argv){
 		pthread_create(&thread, NULL, slave, (void*) arg);
 		threads[i] = thread;
 	}
-	master();
+	master(n);
 	for(int i =0 ;i < n; i++){
 		pthread_join(threads[i], NULL);
 	}
