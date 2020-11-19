@@ -4,11 +4,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <stdint.h>
+#include <stdatomic.h>
 
-struct rwlock {
-	pthread_mutex_t wlock;      /* verrou bloquant les écrivains */
-	pthread_mutex_t rlock;      /* verrou pour synchroniser les lecteurs */
-	int             nb_readers; /* donne le nombre de lecteurs dans la section critique */
+union rwlock {
+	struct {
+		uint64_t nb_readers : 63;
+		uint64_t has_writer : 1;
+	};
+	uint64_t state;
 };
 
 // Stack data structure
@@ -19,14 +23,12 @@ struct node {
 
 
 // global variables
-struct rwlock lock;
+union rwlock lock;
 struct node* stack;
 
-void init(struct rwlock* lock, struct node* stack){
+void init(union rwlock* lock, struct node* stack){
 	// lock init
-	pthread_mutex_init(&lock->wlock, NULL);
-	pthread_mutex_init(&lock->rlock, NULL);
-	lock->nb_readers = 0;
+	lock->state = 0;
 	// stack init
 	stack = malloc(sizeof(struct node));
 	stack->val = 0;
@@ -35,36 +37,36 @@ void init(struct rwlock* lock, struct node* stack){
 }
 
 // called by reader before CS
-void pread(struct rwlock* lock){
-	pthread_mutex_lock(&lock->rlock);
-	// no reader in the CS
-	if(lock->nb_readers == 0){
-		pthread_mutex_lock(&lock->wlock);
+void pread(union rwlock* lock){
+	int added = 0;
+	while(atomic_load(lock->nb_readers) == 0){
+		// take a "lock" on writer
+		if(atomic_compare_exchange_strong(lock->has_writer, 0 ,1)) {
+			atomic_fetch_add(lock->nb_readers,1);
+			added = 1;
+		}
 	}
-	lock->nb_readers++;
-	pthread_mutex_unlock(&lock->rlock);
+	if(added == 0){
+		atomic_fetch_add(lock->nb_readers,1);
+	}
 }
 
 // called by reader after CS
-void vread(struct rwlock* lock){
-	pthread_mutex_lock(&lock->rlock);
-	lock->nb_readers--;
-	if(lock->nb_readers == 0){
-		pthread_mutex_unlock(&lock->wlock);
+void vread(union rwlock* lock){
+	if(atomic_fetch_add(lock->nb_readers,-1) == 1) {
+		atomic_store(lock->has_writer,0);
 	}
-	pthread_mutex_unlock(&lock->rlock);
 }
 
 // called by writer before CS
-void pwrite(struct  rwlock* lock) {
-	pthread_mutex_lock(&lock->rlock);
-	pthread_mutex_lock(&lock->wlock);
-	pthread_mutex_unlock(&lock->rlock);
+void pwrite(union  rwlock* lock) {
+	while (!atomic_compare_exchange_strong(lock->has_writer, 0, 1)) {
+		// wait
+	}
 }
-
 // called by writer after CS
-void vwrite(struct  rwlock* lock) {
-	pthread_mutex_unlock(&lock->wlock);
+void vwrite(union  rwlock* lock) {
+	atomic_store(lock->has_writer,0);
 }
 
 
