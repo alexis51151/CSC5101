@@ -1,11 +1,21 @@
 //
-// Created by Alexis Le Glaunec on 18/11/2020.
+// Created by Alexis Le Glaunec on 19/11/2020.
 //
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdatomic.h>
+
+
+struct cs {
+	void (*func) (int);
+	int arg;
+	int completed;
+};
+
+struct cs* pendings;
+__thread struct cs request;
 
 void* master(){
 	printf("Master called\n");
@@ -25,6 +35,8 @@ int main(int argc, char** argv){
 	}
 	int n = atoi(argv[1]);
 	printf("n = %d\n", n);
+
+	pendings = malloc(n*sizeof(struct cs));
 
 	pthread_t threads[n];
 	for(int i = 0; i < n; i++){
