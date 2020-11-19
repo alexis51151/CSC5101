@@ -8,12 +8,13 @@
 #include <stdatomic.h>
 
 void* master(){
+	printf("Master called\n");
 	pthread_exit(0);
 }
 
 
 void* slave() {
-	printf("Test\n");
+	printf("Slave called\n");
 	pthread_exit(0);
 }
 
@@ -31,10 +32,9 @@ int main(int argc, char** argv){
 		pthread_create(&thread, NULL, slave,NULL);
 		threads[i] = thread;
 	}
-
+	master();
 	for(int i =0 ;i < n; i++){
 		pthread_join(threads[i], NULL);
 	}
-
 	exit(0);
 }
