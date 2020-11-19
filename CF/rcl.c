@@ -34,7 +34,32 @@ void* master(){
 void* slave(void * arg) {
 	int index = *((int*) arg);
 	printf("Slave called with index %d\n", index);
-	pthread_exit(0);
+	while(1) {
+		// prepare to ask an execution
+		// add 2
+		request.func = add;
+		request.arg = 2;
+		request.completed = 0; // false
+
+		// ask an execution
+		pendings[index] = request;
+		printf(" %d : Waiting for add(2)\n", index);
+		// wait for the execution completion
+		while(request.completed != 1);
+
+		// add -1
+		request.func = add;
+		request.arg = -1;
+		request.completed = 0; // false
+
+		// ask an execution
+		pendings[index] = request;
+
+		printf("%d : Waiting for add(-1)\n", index);
+		// wait for the execution completion
+		while(request.completed != 1);
+		// returns after execution of add(2) and add(-1)
+	}
 }
 
 int main(int argc, char** argv){
