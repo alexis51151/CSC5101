@@ -1,6 +1,6 @@
 # CSC5101 - Advanced Programming of Multicore Architectures
 
-Set of exercises from [CSC5101 course](http://www-inf.telecom-sudparis.eu/cours/chps/paam/) to train C parallel programming and delve deeper into the following topics :
+Set of exercises from [CSC5101 course](http://www-inf.telecom-sudparis.eu/cours/chps/paam/) at [Institut Polytechnique de Paris](https://www.ip-paris.fr/en) to perfect my C parallel programming skills and delve deeper into the following research topics :
 
 * **Threads and synchronization:** producer/consumer design pattern implementation
 * **Lock algorithms:**  lock implementations and benchmarking for POSIX, spinlock, ticket and MCS locks
